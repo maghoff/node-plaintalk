@@ -30,25 +30,25 @@ var hints = {
 function DemoServerConnection(server) {
 	if (!(this instanceof DemoServerConnection)) return new DemoServerConnection();
 
+	this.server = server;
 	this.protocol = new PlainTalk();
 
 	var buffered = new BufferedPlaintalk(this.protocol);
 
-	var encoder = new TextEncoder("utf-8");
-	function reply0r(generator, message) {
-		generator.startMessage();
-		message.forEach(function (field) {
-			generator.startField();
-			generator.fieldData(encoder.encode(field));
-			generator.endField();
-		});
-		generator.endMessage();
-	}
-
 	var generator = new PlainTalkGenerator();
 	generator.on('data', function (data) { this.emit('data', data); }.bind(this));
 
-	var reply = reply0r.bind(this, generator);
+	var encoder = new TextEncoder("utf-8");
+	function send(msg) {
+		generator.message(msg.map(field => encoder.encode(field)));
+	}
+
+	this.listeners = [
+		['define', (term, definition) => { send(['*', 'define', term, definition]); } ],
+	];
+	for (let [ event, handler ] of this.listeners) {
+		server.on(event, handler);
+	}
 
 	var commands = {
 		help: function (msgId, args, reply) {
@@ -129,7 +129,8 @@ function DemoServerConnection(server) {
 	buffered.on('error', function (errId, desc) {
 		if (errId === "escape-invalid") server.achievementAwarded(1);
 		else if (errId === "escape-overflow") server.achievementAwarded(2);
-		reply(["*", "error", "protocol_error", errId, "PlainTalk parser reported:\n" + desc]);
+		send(["*", "error", "protocol_error", errId, "PlainTalk parser reported:\n" + desc]);
+		this.close();
 		this.emit("close");
 	}.bind(this));
 
@@ -140,14 +141,14 @@ function DemoServerConnection(server) {
 		var lastField = rawmsg[rawmsg.length - 1];
 		var lastByte = lastField[lastField.length - 1];
 		if (lastByte === '\r'.charCodeAt(0) && !server.hasGivenHint(hints.escapedCr)) {
-			reply(['*', 'hint', hints.escapedCr]);
+			send(['*', 'hint', hints.escapedCr]);
 			server.gaveHint(hints.escapedCr);
 		}
 
 		var msg = rawmsg.map(function (x) { return decoder.decode(x); });
 
 		if (msg.length === 1) {
-			reply([msg[0], "error", "missing_command", "Missing command.\n" +
+			send([msg[0], "error", "missing_command", "Missing command.\n" +
 				"All messages should have the structure <message-id> <command> ...\n" +
 				"Try: 0 help"]);
 			return;
@@ -164,7 +165,7 @@ function DemoServerConnection(server) {
 				return false;
 			}
 			if (messageContainsUnicode(rawmsg)) {
-				reply(['*', 'hint', hints.unicode]);
+				send(['*', 'hint', hints.unicode]);
 				server.gaveHint(hints.unicode);
 			}
 		}
@@ -173,17 +174,23 @@ function DemoServerConnection(server) {
 		var command = msg[1];
 
 		if (!commands.hasOwnProperty(command)) {
-			reply([msgId, 'error', 'unknown_command', command]);
+			send([msgId, 'error', 'unknown_command', command]);
 			return;
 		}
 
-		commands[command](msgId, msg.slice(2), reply);
+		commands[command](msgId, msg.slice(2), send);
 	});
 }
 DemoServerConnection.prototype = Object.create(EventEmitter.prototype);
 
 DemoServerConnection.prototype.send = function (data) {
 	this.protocol.write(data);
+};
+
+DemoServerConnection.prototype.close = function () {
+	for (let [ event, handler ] of this.listeners) {
+		this.server.removeListener(event, handler);
+	}
 };
 
 

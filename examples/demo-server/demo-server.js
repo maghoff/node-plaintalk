@@ -23,6 +23,7 @@ DemoServer.prototype = Object.create(EventEmitter.prototype);
 
 DemoServer.prototype.define = function (term, definition) {
 	this.definitions[term] = definition;
+	this.emit("define", term, definition);
 };
 
 DemoServer.prototype.hasDefinition = function (term) {
