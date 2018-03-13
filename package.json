@@ -9,10 +9,15 @@
   "main": "index.js",
   "scripts": {
     "test": "mocha",
-    "example-tcp": "node examples/tcp-server/index.js"
+    "example-tcp": "node examples/tcp-server/index.js",
+    "example-ws": "node examples/websocket/index.js"
   },
   "devDependencies": {
+    "express": "^4.16.2",
+    "express-ws": "^3.0.0",
     "mocha": "^5.0.4",
-    "text-encoding": "^0.6.4"
+    "text-encoding": "^0.6.4",
+    "webpack": "^4.1.1",
+    "webpack-dev-middleware": "^3.0.1"
   }
 }
