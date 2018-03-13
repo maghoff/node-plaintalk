@@ -20,7 +20,7 @@ const listener = net.createServer(function (socket) {
 	});
 });
 
-listener.listen(2000, '127.0.0.1', function (balle) {
+listener.listen(2000, '127.0.0.1', function () {
 	const port = listener.address().port;
 	console.log(`Listening on localhost:${port}. Try connecting with`);
 	console.log(`    telnet localhost ${port}`);
